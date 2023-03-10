@@ -5,7 +5,7 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
 import os 
-
+import datetime as dt
 from flask import Flask, jsonify
 
 curr_dir = os.path.abspath(os.path.dirname(__file__))
@@ -40,14 +40,16 @@ app = Flask(__name__)
 #################################################
 
 @app.route("/api/v1.0/precipitation")
-def names():
+def precip():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
     """Return a list of all precipitation"""
     # Query all precip
-    results = session.query(Measurement.date, Measurement.prcp).all()
+    
 
+    results = session.query(Measurement.date, Measurement.prcp).all()
+                    
     res = {}
 
     for result in results:
@@ -63,12 +65,11 @@ def names():
 
 
 @app.route("/api/v1.0/stations")
-def names():
+def stations():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
     """Return a list of all stations"""
-    # Query all precip
     results = session.query(Station.station).all()
 
     session.close()
@@ -76,18 +77,31 @@ def names():
     return jsonify(results)
 
 @app.route("/api/v1.0/tobs")
-def names():
+def tobs():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
-    """Return a list of all precipitation"""
-    # Query all precip
-    results = session.query(Measurement.date, Measurement.tobs).all()
+    """Return a list of all tobs"""
+    recent_date = session.query(Measurement).order_by(Measurement.date.desc()).first().date
 
+    dt_recent_date = dt.datetime.strptime(recent_date, '%Y-%m-%d')
+
+    prev_year = dt_recent_date - dt.timedelta(days= 365)
+
+    results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date > prev_year).all()
+    
+    res = {}
+
+    for result in results:
+        date, tobs = result[0], result[1]
+        if date in res:
+            res[date].append(tobs)
+        else:
+            res[date] = [tobs]
     
     session.close()
 
-    return jsonify(results)
+    return jsonify(res)
 
 
 if __name__ == '__main__':
